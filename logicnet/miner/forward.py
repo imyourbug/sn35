@@ -3,6 +3,19 @@ import openai
 import bittensor as bt
 import traceback
 import re
+from helpers.helper import get_function_definition
+from logicnet.validator.challenger.math_generator.topics import A as topics
+
+GET_FUNCTION_DEFINITION_TEMPLATE = """Tôi có 1 array gồm topic và subtopic dạng:
+{all_topics}
+
+Và 1 câu hỏi: {question}
+Câu hỏi trên thuộc topic và subtopic nào, hãy cân nhắc thật kỹ vì có nhiều topic tương tự nhau dễ gây nhầm lẫn, chỉ trả ra kết quả dạng "subtopic, topic", không trả ra gì thêm."""
+
+GET_LOGIC_ANSWER_TEMPLATE = """Hãy giải quyết bài toán sau tuân theo đúng như giải thuật trong function bên dưới. Give me the final short answer as a sentence. Don't reasoning anymore, just say the final answer in math latex:
+- Bài toán: {question}
+- Function:
+```{function_definition}```"""
 
 
 async def solve(
@@ -11,6 +24,28 @@ async def solve(
     try:
         bt.logging.info(f"Received synapse: {synapse}")
         logic_question: str = synapse.logic_question
+
+        # Get the function definition
+        messages = [
+            {
+                "role": "user",
+                "content": GET_FUNCTION_DEFINITION_TEMPLATE.format(
+                    all_topics=topics,
+                    question=logic_question,
+                ),
+            },
+        ]
+        response = await openai_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=2048,
+            temperature=0.7,
+        )
+        topic_and_subtopic = response.choices[0].message.content.split(",")
+        subtopic = topic_and_subtopic[0].strip()
+        topic = topic_and_subtopic[1].strip()
+        function_definition = get_function_definition(subtopic, topic)
+        # Get logic_reasoning
         messages = [
             {"role": "user", "content": logic_question},
         ]
@@ -18,19 +53,31 @@ async def solve(
             model=model,
             messages=messages,
             max_tokens=2048,
-            temperature=0.8,
+            temperature=0.7,
         )
         synapse.logic_reasoning = response.choices[0].message.content
 
-        messages.extend(
-            [
-                {"role": "assistant", "content": synapse.logic_reasoning},
+        # Get logic_answer
+        if function_definition is not None:
+            messages = [
                 {
                     "role": "user",
-                    "content": "Give me the final short answer as a sentence. Don't reasoning anymore, just say the final answer in math latex.",
+                    "content": GET_LOGIC_ANSWER_TEMPLATE.format(
+                        function_definition=function_definition,
+                        question=logic_question,
+                    ),
                 },
             ]
-        )
+        else:
+            messages.extend(
+                [
+                    {"role": "assistant", "content": synapse.logic_reasoning},
+                    {
+                        "role": "user",
+                        "content": "Give me the final short answer as a sentence. Don't reasoning anymore, just say the final answer in math latex.",
+                    },
+                ]
+            )
 
         response = await openai_client.chat.completions.create(
             model=model,

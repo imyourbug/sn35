@@ -7,6 +7,9 @@ from logicnet.protocol import LogicSynapse, Information
 from logicnet.miner.forward import solve
 import traceback
 import openai
+from dotenv import load_dotenv
+import os
+from openai import OpenAI
 
 class Miner(BaseMinerNeuron):
     def __init__(self, config=None):
@@ -26,12 +29,12 @@ class Miner(BaseMinerNeuron):
         self.num_processing_requests = 0
         self.total_request_in_interval = 0
         bt.logging.info(f"\033[1;32m🧠 Miner info: {self.miner_info}\033[0m")
-        self.openai_client = openai.AsyncOpenAI(
-            base_url=self.config.miner.llm_client.base_url,
-            api_key=self.config.miner.llm_client.key,
-        )
+        load_dotenv()
+        self.token = os.getenv("DEEPSEEK_API_KEY")
+        print(f"DEEPSEEK_API_KEY: {self.token}")
+        self.openai_client = OpenAI(api_key=self.token, base_url="https://api.deepseek.com/beta")
 
-    async def forward(self, synapse: LogicSynapse) -> LogicSynapse:
+    def forward(self, synapse: LogicSynapse) -> LogicSynapse:
         """
         Forward pass for the miner neuron. This function is called when a synapse is received by the miner neuron.
         By default, Miner will utilize the LLM API to solve the logic problem.
@@ -41,17 +44,17 @@ class Miner(BaseMinerNeuron):
             self.num_processing_requests += 1
             bt.logging.info(f"\033[1;33;44m🚀 Start processing request {self.num_processing_requests}\033[0m")
             print(f"Info sysnape {synapse}")
-            synapse = await solve(
+            synapse = solve(
                 synapse=synapse,
                 openai_client=self.openai_client,
-                model=self.config.miner.llm_client.model,
+                model="deepseek-chat",
             )
             self.total_request_in_interval += 1
-            
+
         except Exception as e:
             bt.logging.error(f"\033[1;31m❌ Error in forward: {e}\033[0m")
             traceback.print_exc()
-    
+
         finally:
             process_time = time.time() - start_time
             bt.logging.info(f"\033[1;34;47m✅ Served request {self.num_processing_requests}: {round(process_time,2)} seconds\033[0m")
