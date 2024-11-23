@@ -5,7 +5,7 @@ import traceback
 import re
 
 
-async def solve(
+def solve(
     synapse: LogicSynapse, openai_client: openai.AsyncOpenAI, model: str
 ) -> LogicSynapse:
     try:
@@ -14,11 +14,11 @@ async def solve(
         messages = [
             {"role": "user", "content": logic_question},
         ]
-        response = await openai_client.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model=model,
             messages=messages,
             max_tokens=2048,
-            temperature=0.7,
+            # temperature=0.8,
         )
         synapse.logic_reasoning = response.choices[0].message.content
 
@@ -32,7 +32,7 @@ async def solve(
             ]
         )
 
-        response = await openai_client.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model=model,
             messages=messages,
             max_tokens=512,
