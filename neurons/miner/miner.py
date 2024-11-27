@@ -7,6 +7,9 @@ from logicnet.protocol import LogicSynapse, Information
 from logicnet.miner.forward import solve
 import traceback
 import openai
+import os
+from dotenv import load_dotenv, find_dotenv
+from openai import OpenAI 
 
 class Miner(BaseMinerNeuron):
     def __init__(self, config=None):
@@ -26,12 +29,13 @@ class Miner(BaseMinerNeuron):
         self.num_processing_requests = 0
         self.total_request_in_interval = 0
         bt.logging.info(f"\033[1;32m🧠 Miner info: {self.miner_info}\033[0m")
-        self.openai_client = openai.AsyncOpenAI(
-            base_url=self.config.miner.llm_client.base_url,
-            api_key=self.config.miner.llm_client.key,
-        )
+        _ = load_dotenv(find_dotenv())
+        OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+        print(f"OPENAI_API_KEY: {OPENAI_API_KEY}")
 
-    async def forward(self, synapse: LogicSynapse) -> LogicSynapse:
+        self.openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+    def forward(self, synapse: LogicSynapse) -> LogicSynapse:
         """
         Forward pass for the miner neuron. This function is called when a synapse is received by the miner neuron.
         By default, Miner will utilize the LLM API to solve the logic problem.
@@ -41,10 +45,10 @@ class Miner(BaseMinerNeuron):
             self.num_processing_requests += 1
             bt.logging.info(f"\033[1;33;44m🚀 Start processing request {self.num_processing_requests}\033[0m")
             print(f"Info sysnape {synapse}")
-            synapse = await solve(
+            synapse = solve(
                 synapse=synapse,
                 openai_client=self.openai_client,
-                model=self.config.miner.llm_client.model,
+                model="gpt-4o-mini",
             )
             self.total_request_in_interval += 1
             

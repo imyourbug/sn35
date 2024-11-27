@@ -90,7 +90,6 @@ A = [
     ("signum_function", "misc"),
     ("conditional_probability", "statistics"),
     ("arc_length", "geometry"),
-    # ("binomial_distribution", "misc"),
     ("stationary_points", "calculus"),
     ("expanding", "algebra"),
     ("area_of_circle", "geometry"),
@@ -111,10 +110,14 @@ A = [
     ("line_equation_from_2_points", "algebra"),
     ("orthogonal_projection", "algebra"),
     ("area_of_trapezoid", "geometry"),
-    # ("tribonacci_series", "computer_science"),
     ("nth_tribonacci_number", "computer_science"),
     ("velocity_of_object", "misc"),
 ]
+
+NEED_TO_GET_FUNCTION_TOPICS = [
+    ("bcd_to_decimal", "computer_science"),
+]
+
 TOPICS = [dict(topic=topic, subtopic=subtopic) for subtopic, topic in A]
 
 

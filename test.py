@@ -1,26 +1,60 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+import openai
 
-device = "cuda"  # the device to load the model onto
+openai.api_key = "your-api-key"
 
-model = AutoModelForCausalLM.from_pretrained(
-    "Qwen/Qwen2-7B-Instruct", torch_dtype="auto", device_map="auto"
-)
-tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-7B-Instruct")
+prompt = """Bạn sẽ đóng vai một chuyên gia toán học và sử dụng function được cung cấp để giải quyết bài toán sau. Hãy trả về kết quả với định dạng cụ thể:
+- Lời giải chi tiết phải nằm trong cặp thẻ: <solution></solution>.
+- Đáp số cuối cùng phải nằm trong cặp thẻ: <result></result>.
 
-prompt = "Give me a short introduction to large language model."
-messages = [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": prompt},
-]
-text = tokenizer.apply_chat_template(
-    messages, tokenize=False, add_generation_prompt=True
-)
-model_inputs = tokenizer([text], return_tensors="pt").to(device)
+### Function được cung cấp:
+{function_definition}
 
-generated_ids = model.generate(model_inputs.input_ids, max_new_tokens=512)
-generated_ids = [
-    output_ids[len(input_ids) :]
-    for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
-]
+### Bài toán:
+"{question}"
 
-response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+Hãy giải bài toán này bằng cách sử dụng function trên và trả về đúng định dạng yêu cầu. Không thêm thông tin ngoài các thẻ <solution> và <result>."""
+
+def classify_or_solve(question, topics):
+    # Bước 1: Phân loại topic
+    classify_prompt = f"""
+    Dựa trên danh sách các topic sau: {topics}.
+    Hãy xác định topic phù hợp nhất với câu hỏi: "{question}".
+    Nếu không rõ, hãy trả lời rằng "NO" và giải bài toán luôn.
+    """
+    classify_response = openai.ChatCompletion.create(
+        model="gpt-4", messages=[{"role": "user", "content": classify_prompt}]
+    )
+    classification = classify_response["choices"][0]["message"]["content"]
+
+    # Kiểm tra kết quả phân loại
+    if "Không chắc chắn" in classification or "không biết" in classification.lower():
+        # Bước 2: Giải bài toán
+        solve_prompt = f"""
+        Dựa trên câu hỏi: "{question}", hãy giải bài toán này và cung cấp câu trả lời chi tiết.
+        """
+        solve_response = openai.ChatCompletion.create(
+            model="gpt-4", messages=[{"role": "user", "content": solve_prompt}]
+        )
+        return {
+            "action": "solved",
+            "result": solve_response["choices"][0]["message"]["content"],
+        }
+    else:
+        
+        return {"action": "classified", "topic": classification}
+
+
+# Danh sách các topic
+topics = ["calculus", "geometry", "algebra", "statistics", "misc"]
+
+# Câu hỏi cần xử lý
+question = "What is the derivative of x^2 + 3x?"
+
+# Gọi hàm xử lý
+response = classify_or_solve(question, topics)
+
+# Kiểm tra kết quả
+if response["action"] == "classified":
+    print(f"Topic được phân loại: {response['topic']}")
+elif response["action"] == "solved":
+    print(f"Kết quả giải bài toán: {response['result']}")
